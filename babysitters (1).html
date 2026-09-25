@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Babysitter Directory</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F5F1; --panel:#FFFFFF; --ink:#20302B; --muted:#5B6B65;
+    --accent:#3E6259; --accent-soft:#E4ECE8; --border:#DCE2DE;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161C1A; --panel:#1F2724; --ink:#EDF1EF; --muted:#9BABA4;
+      --accent:#7FB8A6; --accent-soft:#233531; --border:#2C3733;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161C1A; --panel:#1F2724; --ink:#EDF1EF; --muted:#9BABA4;
+    --accent:#7FB8A6; --accent-soft:#233531; --border:#2C3733;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);}
+  body{
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:2.5rem 1.5rem 4rem;}
+  header{margin-bottom:2rem;}
+  h1{font-size:1.6rem;margin:0 0 .3rem;letter-spacing:-0.01em;}
+  header p{color:var(--muted);margin:0;font-size:.95rem;}
+
+  form{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:1.25rem;margin-bottom:2rem;
+  }
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+  .grid .full{grid-column:1/-1;}
+  label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:.25rem;}
+  input{
+    width:100%;padding:.5rem .6rem;border:1px solid var(--border);border-radius:6px;
+    background:transparent;color:var(--ink);font-size:.9rem;
+  }
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  button{
+    margin-top:1rem;background:var(--accent);color:#fff;border:none;border-radius:6px;
+    padding:.6rem 1.1rem;font-size:.9rem;cursor:pointer;
+  }
+  button:hover{opacity:.9;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;}
+  .toolbar h2{font-size:1rem;margin:0;color:var(--muted);font-weight:600;}
+  .export{
+    background:var(--panel);color:var(--ink);border:1px solid var(--border);
+    border-radius:6px;padding:.5rem .9rem;font-size:.85rem;margin:0;cursor:pointer;
+  }
+  .export:hover{border-color:var(--accent);color:var(--accent);}
+  .export:disabled{opacity:.5;cursor:not-allowed;}
+
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:1rem 1.25rem;margin-bottom:.75rem;
+    display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;
+  }
+  .card.rejected{opacity:.55;}
+  .name{font-weight:600;font-size:1.05rem;margin:0 0 .35rem;display:flex;align-items:center;gap:.5rem;}
+  .badge{font-size:.7rem;padding:.15rem .5rem;border-radius:99px;border:1px solid var(--border);color:var(--muted);}
+  .badge.accepted{color:#2f7a4d;border-color:#2f7a4d;}
+  .badge.rejected{color:#b5504a;border-color:#b5504a;}
+  .details{display:flex;flex-wrap:wrap;gap:.4rem .9rem;color:var(--muted);font-size:.85rem;margin:0 0 .6rem;padding:0;list-style:none;}
+  .actions{display:flex;flex-wrap:wrap;gap:.4rem;}
+  .card-col{flex:1;min-width:0;}
+  .btn-side{display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;}
+  .actions button, .btn-side .remove{
+    background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:6px;padding:.3rem .6rem;font-size:.75rem;margin:0;cursor:pointer;
+  }
+  .actions .accept:hover{border-color:#2f7a4d;color:#2f7a4d;}
+  .actions .reject:hover{border-color:#b5504a;color:#b5504a;}
+  .btn-side .remove:hover{border-color:#b55;color:#b55;}
+  .empty{color:var(--muted);font-size:.9rem;padding:1rem 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Babysitter Directory</h1>
+    <p>Data is kept only in this browser tab and clears on reload.</p>
+  </header>
+
+  <form id="addForm">
+    <div class="grid">
+      <div><label for="fname">First name</label><input id="fname" required></div>
+      <div><label for="lname">Last name</label><input id="lname" required></div>
+      <div><label for="age">Age</label><input id="age" type="number" min="16" max="99" required></div>
+      <div><label for="exp">Years of experience</label><input id="exp" type="number" min="0" max="60" required></div>
+      <div><label for="cert">Certifications</label><input id="cert" placeholder="CPR, First Aid"></div>
+      <div><label for="rate">Hourly rate</label><input id="rate" placeholder="e.g. €12/hr"></div>
+      <div class="full"><label for="avail">Availability</label><input id="avail" placeholder="e.g. Weekday evenings"></div>
+    </div>
+    <button type="submit">Add babysitter</button>
+  </form>
+
+  <div class="toolbar">
+    <h2>Candidates</h2>
+    <button id="exportBtn" class="export">Download list (Excel)</button>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script>
+  // In-memory only — no localStorage, no backend.
+  let babysitters = [
+    { fname:"Emma", lname:"Verstraete", age:22, exp:4, cert:"CPR, First Aid", rate:"€11/hr", avail:"Weekends", status:"pending" },
+    { fname:"Lars", lname:"Peeters", age:27, exp:6, cert:"CPR", rate:"€13/hr", avail:"Weekday evenings", status:"pending" }
+  ];
+
+  const listEl = document.getElementById("list");
+  const form = document.getElementById("addForm");
+  const exportBtn = document.getElementById("exportBtn");
+
+  const STATUS_LABEL = { pending:"Pending", accepted:"Accepted", rejected:"Rejected" };
+
+  function render(){
+    listEl.innerHTML = "";
+    if(babysitters.length === 0){
+      listEl.innerHTML = '<p class="empty">No babysitters added yet.</p>';
+      return;
+    }
+    babysitters.forEach((b, i) => {
+      const card = document.createElement("div");
+      card.className = "card" + (b.status === "rejected" ? " rejected" : "");
+      card.innerHTML = `
+        <div class="card-col">
+          <p class="name">${escapeHtml(b.fname)} ${escapeHtml(b.lname)}
+            <span class="badge ${b.status}">${STATUS_LABEL[b.status]}</span>
+          </p>
+          <ul class="details">
+            <li>Age ${escapeHtml(String(b.age))}</li>
+            <li>${escapeHtml(String(b.exp))} yrs experience</li>
+            ${b.cert ? `<li>${escapeHtml(b.cert)}</li>` : ""}
+            ${b.rate ? `<li>${escapeHtml(b.rate)}</li>` : ""}
+            ${b.avail ? `<li>${escapeHtml(b.avail)}</li>` : ""}
+          </ul>
+          <div class="actions">
+            <button class="accept" data-i="${i}">Accept</button>
+            <button class="reject" data-i="${i}">Reject</button>
+          </div>
+        </div>
+        <div class="btn-side">
+          <button class="remove" data-i="${i}">Remove</button>
+        </div>
+      `;
+      listEl.appendChild(card);
+    });
+    listEl.querySelectorAll(".accept").forEach(btn=>{
+      btn.addEventListener("click", () => {
+        babysitters[Number(btn.dataset.i)].status = "accepted";
+        render();
+      });
+    });
+    listEl.querySelectorAll(".reject").forEach(btn=>{
+      btn.addEventListener("click", () => {
+        babysitters[Number(btn.dataset.i)].status = "rejected";
+        render();
+      });
+    });
+    listEl.querySelectorAll(".remove").forEach(btn=>{
+      btn.addEventListener("click", () => {
+        babysitters.splice(Number(btn.dataset.i), 1);
+        render();
+      });
+    });
+  }
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[m]));
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    babysitters.push({
+      fname: document.getElementById("fname").value.trim(),
+      lname: document.getElementById("lname").value.trim(),
+      age: document.getElementById("age").value,
+      exp: document.getElementById("exp").value,
+      cert: document.getElementById("cert").value.trim(),
+      rate: document.getElementById("rate").value.trim(),
+      avail: document.getElementById("avail").value.trim(),
+      status: "pending"
+    });
+    form.reset();
+    render();
+  });
+
+  async function getDownloadsCapability(){
+    try{
+      if (typeof claude === "undefined" || !claude.use) return null;
+      return await claude.use("downloads");
+    }catch(e){
+      return null;
+    }
+  }
+
+  exportBtn.addEventListener("click", async () => {
+    const rows = [
+      ["First name","Last name","Age","Years of experience","Certifications","Hourly rate","Availability","Status"],
+      ...babysitters.map(b => [b.fname, b.lname, b.age, b.exp, b.cert, b.rate, b.avail, STATUS_LABEL[b.status]])
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Babysitters");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+
+    const downloads = await getDownloadsCapability();
+    if (downloads) {
+      try{
+        await downloads.save({ filename: "babysitters.xlsx", data: blob });
+      }catch(err){
+        if (err && err.code !== "declined") {
+          alert("The download could not be completed.");
+        }
+      }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "babysitters.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  });
+
+  render();
+</script>
+</body>
+</html>
